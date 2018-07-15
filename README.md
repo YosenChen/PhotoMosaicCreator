@@ -1,2 +1,4 @@
 # PhotoMosaicCreator
-an free OpenCV-based photo mosaic tool
+A free OpenCV-based photo mosaic tool
+
+Dependency requirement: opencv2 C++ lib
