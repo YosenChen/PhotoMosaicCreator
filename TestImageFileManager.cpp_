@@ -1,0 +1,25 @@
+#include "ImageFileManager.h"
+#include <cstdio>
+#include <vector>
+
+const std::string FOLDER_PATH = "/home/idfs/GitHubWorkSpace/PhotoMosaicCreator/small_test_image_lib";
+
+int main(int argc, char* argv[])
+{
+    ImageFileManager ifm;
+
+    std::vector<std::string> fileExt = {{".JPG"}, {".jpg"}, {".jpeg"}};
+
+    auto success = ifm.FindFile(FOLDER_PATH, {fileExt.begin(), fileExt.end()});
+    printf("FindFile: %d\n", success);
+    if (!success) return 1;
+    
+    while (ifm.FindNextFile())
+    {
+        printf("filename: %s\n", ifm.GetFileName().c_str());
+    }
+    printf("Listed all files, done\n");
+
+    return 0;
+}
+

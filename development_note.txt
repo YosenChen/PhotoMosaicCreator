@@ -1,0 +1,101 @@
+Copied my original code (implemented in Visual Studio 2005, with OpenCV 1)
+into the repo folder, remove all Visual Studio stuffs
+
+made the Makefile work, ref to my 367 OpenCV 3 C++ code and other Makefile
+    367-Project/opencv_cpp/Makefile
+    SoftwareArchitectureDesign/MultiInstanceExample/Makefile
+
+Boost lib is still somehow not working, googled and found another alternative
+dirent.h lib
+    https://stackoverflow.com/questions/612097/how-can-i-get-the-list-of-files-in-a-directory-using-c-or-c
+    and I was able to compile the sample code: 
+
+    compiled failures solved:
+        couldn't recognize EXIT_FAILURE
+            http://www.cplusplus.com/reference/cstdlib/EXIT_FAILURE/
+                added cstdlib, done
+
+    now the 
+    mv main.cpp main.cpp_
+    mv MontageImage.cpp MontageImage.cpp_
+    make
+        g++ dirent_simple_ls.cpp -o dirent_simple_ls.o -c -std=c++11 -O3 -I ../../Downloads/boost/boost_1_62_0 -Wall -I/usr/local/include/opencv -I/usr/local/include
+        g++ -o mosaic_creator dirent_simple_ls.o
+    ~/GitHubWorkSpace/PhotoMosaicCreator$ ./mosaic_creator
+        I could see the files listed!
+
+Wanted to reuse the current existing temp image folder just for initial debugging
+    ~/GitHubWorkSpace/PhotoMosaicCreator/temp_dir_scaled_JPG
+    
+    some filenames have weird characters, e.g., ╝v╣│0059.JPG
+    googled:
+        https://www.tecmint.com/rename-multiple-files-in-linux/
+        "rename" is already build-in in linux system
+    tried, worked:
+        rename -v 's/rmp4/RMP4/' *.JPG
+            rmp4_1.JPG renamed as RMP4_1.JPG
+            rmp4_2.JPG renamed as RMP4_2.JPG
+        rename -v 's/╝v╣│/IMAGE/' *.JPG
+            all files renamed
+                ╝v╣│0059.JPG renamed as IMAGE0059.JPG
+                ...
+    Now the images inside temp_dir_scaled_JPG are ready to use
+    however we have to rename this folder
+    since later this mosaic tool will try to create a folder with the same name to store temp resized images
+    so:
+        ~/GitHubWorkSpace/PhotoMosaicCreator$ mv temp_dir_scaled_JPG small_test_image_lib
+
+
+Now continue to compile the code (MontageImage.cpp first)
+marked out all CFileFind stuffs for now
+compiled MontageImage.cpp, undefined reference to all cv*** APIs (old opencv...)
+after googling some of those APIs, it seems like the latest version supporting pure C APIs is maybe OpenCV 2.4
+so I think the easiest way for me now is to install OpenCV 2.4
+https://docs.opencv.org/2.4/doc/tutorials/introduction/linux_install/linux_install.html
+after installing the required packages, when downloading opencv source code, I found the folder name is actually OpenCV 3.4
+But I now I already downloaded 3.1 before...
+So maybe OpenCV 2.x is already inside my system
+here is what I found: ~/opencv-3.1.0/include/opencv
+added those headers in MontageImage.h, still same undefined reference...
+it seems like a common issue people might encounter, so googled and found this
+https://stackoverflow.com/questions/24337932/cannot-get-opencv-to-compile-because-of-undefined-references
+    it suggested:
+        g++ -o test_1 test_1.cpp `pkg-config opencv --cflags --libs`
+        and if I compiled from the source (yes), I had to run: sudo ldconfig
+        for some run-time linking issue
+did: sudo ldconfig
+it seems like this resolved all cv undefined references
+    g++ -std=c++11 -o MontageImage MontageImage.cpp `pkg-config opencv --cflags --libs`
+addressed my Makefile for this
+but now I still have one undefined reference:
+    /usr/lib/gcc/i686-linux-gnu/5/../../../i386-linux-gnu/crt1.o: In function `_start':
+    (.text+0x18): undefined reference to `main'
+    collect2: error: ld returned 1 exit status
+googled it, found the reason:
+    https://stackoverflow.com/questions/7965437/undefined-reference-to-main-collect2-ld-returned-1-exit-status
+        you are attempting to create an executable out of it.
+        An executable needs to have an entry point, thereby the linker complains.
+        To compile only to an object file, use the -c option:
+        
+        example:
+            gcc es3.c -c
+                // es3.c to an object file
+            gcc es3.o main.c -o es3
+                linker merges main.c and es3.o to an executable file called es3
+Updated my Makefile to address this
+
+g++ -std=c++11 -o MontageImage MontageImage.cpp `pkg-config opencv --cflags --libs`
+    this can compile successfully with this line at the bottom in MontageImage.cpp
+        int main(void) { return 0; }        
+
+finally had a version of Makefile compiling, no linking errors
+
+
+
+
+
+replace all CFileFind mFinder with dirent APIs
+
+
+
+
