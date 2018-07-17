@@ -154,7 +154,7 @@ int main_back (void)
 
 	const char* winName = "Loaded Sub Image";
 	const char* winName2 = "Loaded Sub Image 2";
-	char* winNameTmp = "Tmp Sub Image";
+	const char* winNameTmp = "Tmp Sub Image";
 
 	cvNamedWindow(winName,1);
 	cvNamedWindow(winName2,1);
@@ -239,7 +239,7 @@ int main (void)
                             cvSize(subImgWidth,subImgHeight),
                             cvSize(gridX,gridY),
                             cvSize(subImgWidth*gridX, subImgHeight*gridY),
-							"small_test_image_lib", 
+							"small_test_image_lib/", 
 							"/home/idfs/GitHubWorkSpace/PhotoMosaicCreator/small_test_image_lib/IMAGE0107.JPG", 
 							"result.JPG")
             != MontageImage::INIT_IO_RETURN::RETURN_NO_ERROR)
@@ -256,7 +256,7 @@ int main (void)
                     MontageImage::SUB_IMG_ARRANGE_ORDER::GEO_COLOR_MATCH/*SEMI_RANDOM*//*DEFAULT_SYSTEM_READING*/))
                 != NULL)
 	{
-		montage.setCurSubImg(0, 0, NULL, NULL);
+		montage.setCurSubImg(0, 0, NULL, {});
 
 		#ifdef PRINT_DEBUG_MSG
 		printOut << "current setCurSubImg: gridX = "

@@ -38,7 +38,7 @@ MontageImage::MontageImage()
 }
 MontageImage::~MontageImage()
 {
-	///*dirent*/mFinder.Close();
+	mImageFileManager.Close();
 	if (!mLoadProfImg)				cvReleaseImage(&mLoadProfImg);
 	if (!mLoadSubImg)				cvReleaseImage(&mLoadSubImg);
 	if (!mOutImg)					cvReleaseImage(&mOutImg);
@@ -63,13 +63,16 @@ MontageImage::~MontageImage()
 }
 
 void MontageImage::subImages_SaveAs_norTempJPGImage_inCreatedTempDir(
-        char *subImgOrigDir, char *tempDirName, int subImgLongLen, int subImgShortLen)
+        std::string subImgOrigDir,
+        std::string tempDirName,
+        int subImgLongLen,
+        int subImgShortLen)
 {
 	std::string star_dot_format = "*.JPG"; 
 	std::string subImgOrigDirLink;
-	subImgOrigDirLink.clear();
-	subImgOrigDirLink = to_string(subImgOrigDir) + star_dot_format;
-	///*dirent*/if (mFinder.FindFile(subImgOrigDirLink.c_str()) == 0) return;
+	//subImgOrigDirLink.clear();
+	subImgOrigDirLink = std::string(subImgOrigDir);// + star_dot_format;
+	if (!mImageFileManager.FindFile(subImgOrigDirLink, {mFileExt.begin(), mFileExt.end()})) return;
 
 	std::string loadSubImgName, saveSubImgName;
 	std::string dash = "/";
@@ -79,9 +82,9 @@ void MontageImage::subImages_SaveAs_norTempJPGImage_inCreatedTempDir(
 	IplImage *loadSubImg;
 	IplImage *tempSubImgW = cvCreateImage(cvSize(subImgLongLen, subImgShortLen), 8, 3);
 	IplImage *tempSubImgH = cvCreateImage(cvSize(subImgShortLen, subImgLongLen), 8, 3);
-	///*dirent*/while (mFinder.FindNextFile() != 0)
+	while (mImageFileManager.FindNextFile())
 	{
-		///*dirent*/loadSubImgName = to_string(subImgOrigDir) + to_string((LPCTSTR) mFinder.GetFileName());
+		loadSubImgName = std::string(subImgOrigDir) + mImageFileManager.GetFileName();
 
 		#ifdef PRINT_DEBUG_MSG
 		printOut << loadSubImgName.c_str(); printOut << "\n";
@@ -89,7 +92,7 @@ void MontageImage::subImages_SaveAs_norTempJPGImage_inCreatedTempDir(
 
 		loadSubImg = cvLoadImage(loadSubImgName.c_str());
 
-		///*dirent*/saveSubImgName = to_string(tempDirName) + dash + to_string((LPCTSTR) mFinder.GetFileName());
+		saveSubImgName = std::string(tempDirName) + dash + mImageFileManager.GetFileName();
 
 		if (loadSubImg->width > loadSubImg->height) 
 		{
@@ -107,10 +110,17 @@ void MontageImage::subImages_SaveAs_norTempJPGImage_inCreatedTempDir(
 
 	// now, you got last file
 
-	///*dirent*/mFinder.Close();
+	mImageFileManager.Close();
 }
 
-MontageImage::INIT_IO_RETURN MontageImage::initIOBasis(IMG_CONF_MODE conf_mode, CvSize subImgSize, CvSize subGridSize, CvSize outImgSize, char *subImgFileDir, char *profileImgFileName, char *outImgFileName)
+MontageImage::INIT_IO_RETURN MontageImage::initIOBasis(
+        IMG_CONF_MODE conf_mode,
+        CvSize subImgSize,
+        CvSize subGridSize,
+        CvSize outImgSize,
+        std::string subImgFileDir,
+        std::string profileImgFileName,
+        std::string outImgFileName)
 {
 	mConf_mode = conf_mode;
 	mSubImgSize = subImgSize;
@@ -134,13 +144,13 @@ MontageImage::INIT_IO_RETURN MontageImage::initIOBasis(IMG_CONF_MODE conf_mode, 
 
 
 	std::string star_dot_JPG = "*.JPG"; 
-	mSubImgFileLink.clear();
-	mSubImgFileLink = to_string(mSubImgFileDir) + star_dot_JPG;
-	if (0) ///*dirent*/if (mFinder.FindFile(/*mSubImgFileDir*/mSubImgFileLink.c_str()) == 0) 
+	//mSubImgFileLink.clear();
+	mSubImgFileLink = std::string(mSubImgFileDir);// + star_dot_JPG;
+	if (!mImageFileManager.FindFile(/*mSubImgFileDir*/mSubImgFileLink, {mFileExt.begin(), mFileExt.end()}))
 	{
 
 		#ifdef PRINT_DEBUG_MSG
-		printOut << "You have no " << mSubImgFileLink.c_str() << " file.\n";
+		printOut << "You have no " << mSubImgFileLink << " file.\n";
 		#endif
 
 		//system("pause");
@@ -160,7 +170,7 @@ MontageImage::INIT_IO_RETURN MontageImage::initIOBasis(IMG_CONF_MODE conf_mode, 
 	}
 
 
-	if ((mLoadProfImg = cvLoadImage(mProfImgFileName,1)) == NULL)
+	if ((mLoadProfImg = cvLoadImage(mProfImgFileName.c_str(), 1)) == NULL)
 	{
 		#ifdef PRINT_DEBUG_MSG
 		printOut << "cannot load " << mProfImgFileName << "\n";
@@ -190,7 +200,7 @@ IplImage* MontageImage::loadSubImg_base()
 	if (imgDir_status == GCM_IMG_DIR_READ_STATUS::REACH_END) imgDir_status = GCM_IMG_DIR_READ_STATUS::ALREADY_WRAP_AROUND;
 
 	bool hasMoreFile;
-	if (1)///*dirent*/if ( (hasMoreFile = mFinder.FindNextFile()) != 0 )
+	if ( (hasMoreFile = mImageFileManager.FindNextFile()) )
 	{
 		//++mSubImgCounter;
 
@@ -199,7 +209,7 @@ IplImage* MontageImage::loadSubImg_base()
 		#endif
 
 
-		///*dirent*/mCurSubImgName = to_string(mSubImgFileDir) + to_string((LPCTSTR) mFinder.GetFileName());
+		mCurSubImgName = std::string(mSubImgFileDir) + mImageFileManager.GetFileName();
 
 		#ifdef PRINT_DEBUG_MSG
 		printOut << mCurSubImgName.c_str(); printOut << "\n";
@@ -236,17 +246,18 @@ IplImage* MontageImage::loadSubImg_base()
 		//++mSubImgCounter;
 
 		#ifdef PRINT_DEBUG_MSG
-		printOut << "The last file...\n";
+		printOut << "No more files to read...\n";
 		#endif
 
-
-		///*dirent*/mCurSubImgName = to_string(mSubImgFileDir) + to_string((LPCTSTR) mFinder.GetFileName());
+    #if 0
+		mCurSubImgName = std::string(mSubImgFileDir) + mImageFileManager.GetFileName();
 
 		#ifdef PRINT_DEBUG_MSG
 		printOut <<  mCurSubImgName.c_str(); printOut << "\n";
 		#endif
 
 		mLoadSubImg = cvLoadImage(mCurSubImgName.c_str());
+    #endif
 
 		// change to "wrap around" version
 		/*mHasNoMoreFile = true;*/
@@ -256,11 +267,12 @@ IplImage* MontageImage::loadSubImg_base()
 		printOut << "Repeat from the first loaded file (wrap around)...\n";
 		#endif
 
-		///*dirent*/mFinder.Close();
-		///*dirent*/mFinder.FindFile(mSubImgFileLink.c_str()); //already checked the return value of FindFile() in initIOBasis()
+		mImageFileManager.Close();
+        //already checked the return value of FindFile() in initIOBasis()
+		mImageFileManager.FindFile(mSubImgFileLink, {mFileExt.begin(), mFileExt.end()});
 
 
-		
+    #if 0		
 		if (mLoadSubImg->width <= mLoadSubImg->height)
 		{
 			//free current sub temp memory
@@ -272,6 +284,8 @@ IplImage* MontageImage::loadSubImg_base()
 			++mSubImgCounter;
 			return mLoadSubImg;
 		}
+    #endif
+        return loadSubImg_base();
 	}
 
 }
@@ -364,7 +378,6 @@ IplImage* MontageImage::loadSubImage(SUB_IMG_ARRANGE_ORDER order)
 		#endif
 
 		return mLoadSubImg = cvLoadImage(imgDatabase[best_subImg_idx]->imgFileName.c_str());
-
 	}
 }
 
@@ -482,13 +495,13 @@ void MontageImage::extract_GCM_subImgInfo(IplImage* inImg, GCM_subImgInfo* gcm_i
 
 
 //will be resized to subImgSize
-void MontageImage::setCurSubImg(int gridX, int gridY, IplImage *loadImgPtr, char *loadImgName, bool isManualMode)
+void MontageImage::setCurSubImg(int gridX, int gridY, IplImage *loadImgPtr, std::string loadImgName, bool isManualMode)
 {
 	if (isManualMode)
 	{	
 		mCurSubImgStruct.gridX = gridX;
 		mCurSubImgStruct.gridY = gridY;
-		mCurSubImgStruct.subImgName = to_string(loadImgName);
+		mCurSubImgStruct.subImgName = loadImgName;
 		cvResize(loadImgPtr, mCurSubImgStruct.imgPtr);
 	}
 	else //only use internal variables
@@ -600,8 +613,14 @@ void MontageImage::show_and_save_OutImg()
 
 
 
-void MontageImage::addText(char* loadImgName_NoText, char* saveImgName_Text, 
-						   int wordType, char* word2print, float wordScaleNum, CvScalar textColor, float norTextPos_width, float norTextPos_height)
+void MontageImage::addText(std::string loadImgName_NoText,
+                           std::string saveImgName_Text, 
+						   int wordType,
+                           std::string word2print,
+                           float wordScaleNum,
+                           CvScalar textColor,
+                           float norTextPos_width,
+                           float norTextPos_height)
 {
 	//------------------ this function can be executed independantly --------------------//
 
@@ -610,7 +629,7 @@ void MontageImage::addText(char* loadImgName_NoText, char* saveImgName_Text,
 	#endif
 
 
-	IplImage *loadImg_NoText = cvLoadImage(loadImgName_NoText/*"mOutImg.JPG"*/, 1);
+	IplImage *loadImg_NoText = cvLoadImage(loadImgName_NoText.c_str()/*"mOutImg.JPG"*/, 1);
 	IplImage *img_Text = cvCreateImage(cvSize(loadImg_NoText->width, loadImg_NoText->height), 8, 3);
 	cvCopy(loadImg_NoText, img_Text);
 	CvFont font;
@@ -622,10 +641,18 @@ void MontageImage::addText(char* loadImgName_NoText, char* saveImgName_Text,
 	//cvPutText(img_Text, "*~To My Love~*", cvPoint(img_Text->width*0.23, img_Text->height*0.95), &font, CV_RGB(250,0,0));
 
 	float testScaleNum = /*4*/wordScaleNum;
-	cvInitFont( &font, wordType/*CV_FONT_HERSHEY_TRIPLEX*/, 4*testScaleNum, 4*testScaleNum, 0, 12*testScaleNum );
-	cvPutText(img_Text, word2print/*"*~To My Love~*"*/, cvPoint(img_Text->width*norTextPos_width/*0.23*/, img_Text->height*norTextPos_height/*0.95*/), &font, textColor/*CV_RGB(250,0,0)*/);
+	cvInitFont(&font,
+               wordType/*CV_FONT_HERSHEY_TRIPLEX*/,
+               4*testScaleNum, 4*testScaleNum,
+               0,
+               12*testScaleNum );
+	cvPutText(img_Text,
+              word2print.c_str()/*"*~To My Love~*"*/,
+              cvPoint(img_Text->width*norTextPos_width/*0.23*/, img_Text->height*norTextPos_height/*0.95*/),
+              &font,
+              textColor/*CV_RGB(250,0,0)*/);
 
-	cvSaveImage(saveImgName_Text/*"img_Text.JPG"*/, img_Text);
+	cvSaveImage(saveImgName_Text.c_str()/*"img_Text.JPG"*/, img_Text);
 
 	cvReleaseImage(&loadImg_NoText);
 	cvReleaseImage(&img_Text);

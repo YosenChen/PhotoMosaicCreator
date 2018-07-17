@@ -19,6 +19,7 @@ int main(int argc, char* argv[])
         printf("filename: %s\n", ifm.GetFileName().c_str());
     }
     printf("Listed all files, done\n");
+    ifm.Close();
 
     return 0;
 }
