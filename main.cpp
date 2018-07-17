@@ -227,8 +227,8 @@ int main (void)
 
 	#ifdef CREATE_SUB_IMGS
 	montage.subImages_SaveAs_norTempJPGImage_inCreatedTempDir(
-            "/a/folder/path/which/resides/all/source/images",
-            "temp_dir_scaled_JPG",
+            "/home/idfs/Documents/fatrmp4_images/",
+            "small_test_image_lib/",
             subImgWidth,
             subImgHeight);
 	#endif
@@ -240,7 +240,7 @@ int main (void)
                             cvSize(gridX,gridY),
                             cvSize(subImgWidth*gridX, subImgHeight*gridY),
 							"small_test_image_lib/", 
-							"/home/idfs/GitHubWorkSpace/PhotoMosaicCreator/small_test_image_lib/IMAGE0107.JPG", 
+							"/home/idfs/Documents/fatrmp4_images/profile.jpeg", 
 							"result.JPG")
             != MontageImage::INIT_IO_RETURN::RETURN_NO_ERROR)
     {
@@ -282,7 +282,7 @@ int main (void)
 	#endif
 
 
-	if (montage.imageMixing(NULL, NULL, 0.65, NULL) == false) return 0;
+	if (montage.imageMixing(NULL, NULL, 0.65/*0.7*/, NULL) == false) return 0;
 
 	#ifdef PRINT_DEBUG_MSG
 	printOut << "imageMixing done\n";

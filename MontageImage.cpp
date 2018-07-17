@@ -1,5 +1,9 @@
 #include "MontageImage.h"
 
+#include <cstdlib>
+#include <numeric>
+#include <assert.h>
+
 template <class T>
 inline std::string to_string (const T& t)
 {
@@ -23,6 +27,31 @@ using namespace std;
 				cvSaveImage(image_name.c_str(), result);
 */
 
+unsigned int GetRandomIndex(std::vector<double>& weights)
+{
+    assert(weights.size() > 0);
+    // v: a random value in [0, 1]
+    // rand() in [0, RAND_MAX]
+    double v = static_cast<double>(rand()) / RAND_MAX;
+    //printOut << "v: " << v << "\n";
+    
+    double totalWeights = std::accumulate(weights.begin(), weights.end(), 0.0);
+    v *= totalWeights;  // scaled v
+    //printOut << "v (scaled): " << v << "\n";
+
+    double currSum = 0;
+    for (unsigned int i=0; i<weights.size(); i++)
+    {
+        currSum += weights[i];
+        //printOut << "i=" << i << ", currSum=" << currSum << ", weights[i]=" << weights[i] << "\n";
+        if (v <= currSum)
+        {
+            //printOut << "Hit! i=" << i << "\n";
+            return i;
+        }
+    }
+    return weights.size()-1; // shouldn't get here
+}
 
 MontageImage::MontageImage()
 {
@@ -349,7 +378,7 @@ IplImage* MontageImage::loadSubImage(SUB_IMG_ARRANGE_ORDER order)
 		GCM_subImgInfo curGCM_ofProfImg;
 		extract_GCM_subImgInfo(GCM_profImg_segment, &curGCM_ofProfImg);
 
-		double minDist = 16*4; // a value which is impossible to reach
+		double minDist = GCM_HIST_BIN_NUM*4; // a value which is impossible to reach
 		double curDist;
 		int best_subImg_idx = MAX_DATABASE_NUM+1; // a index which is impossible to reach
 
@@ -358,6 +387,7 @@ IplImage* MontageImage::loadSubImage(SUB_IMG_ARRANGE_ORDER order)
 		printOut << "endIdx_imgDB = " << endIdx_imgDB << "\n";
 		#endif
 
+        std::vector<double> weights(endIdx_imgDB+1, 0.0);
 		for (int i=0; i<=endIdx_imgDB; i++)
 		{
 
@@ -365,16 +395,25 @@ IplImage* MontageImage::loadSubImage(SUB_IMG_ARRANGE_ORDER order)
 			//printOut << "i=" << i << " ";
 			#endif
 
+#if 0 // Use an weighted random method for best idx selection instead
 			if ((curDist = compare_GCM_subImgInfo(&curGCM_ofProfImg, imgDatabase[i])) <= minDist)
 			{
 				minDist = curDist;
 				best_subImg_idx = i;
 			}
-			
+#endif
+            double dist = compare_GCM_subImgInfo(&curGCM_ofProfImg, imgDatabase[i]);
+            dist /= (4); // normalized by some proper number by tuning
+            auto weight = exp(-dist);
+            //printOut << "i=" << i << ", weight=" << weight << "\n";
+            weights[i] = weight;
 		}
 
+        // draw a random index based on weights
+        best_subImg_idx = GetRandomIndex(weights);
+
 		#ifdef PRINT_DEBUG_MSG
-		printOut << "minDist = " << minDist << ", best_subImg_idx = " << best_subImg_idx << "\n";
+		printOut << "weight = " << weights[best_subImg_idx] << ", best_subImg_idx = " << best_subImg_idx << "\n";
 		#endif
 
 		return mLoadSubImg = cvLoadImage(imgDatabase[best_subImg_idx]->imgFileName.c_str());
@@ -389,7 +428,7 @@ double MontageImage::compare_GCM_subImgInfo(GCM_subImgInfo* gcm_info1, GCM_subIm
 	{
 		dist = gcm_info1->hueValues[i] - gcm_info2->hueValues[i];
 		dist = (dist>=0) ? dist : -dist;
-		distSum += (dist>GCM_HIST_BIN_NUM/2) ? GCM_HIST_BIN_NUM - dist : dist;
+		distSum += ((dist>GCM_HIST_BIN_NUM/2) ? GCM_HIST_BIN_NUM - dist : dist);
 	}
 	return distSum;
 }

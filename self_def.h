@@ -12,5 +12,5 @@
 #define printOut cout
 //#define printOut txtout
 
-//#define CREATE_SUB_IMGS
+#define CREATE_SUB_IMGS
 #define IMG_MIX
