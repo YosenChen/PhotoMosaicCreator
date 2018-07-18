@@ -39,6 +39,19 @@ unsigned int GetRandomIndex(std::vector<double>& weights)
     v *= totalWeights;  // scaled v
     //printOut << "v (scaled): " << v << "\n";
 
+    // no randomization, just peak the idx with highest weight
+    // this is to verify the weights and to compare with BestMatchNoRandom case
+    // And this is also a good way to evaluate the quality of color matching before alpha blending
+    // in general there are 2 steps to tune/optimize
+    // 1. Color matching: before alpha blending, no randomization, see how close the image is
+    // 2. Randomization: before alpha blending, with randomization, see how close the image is
+    //    randomization is a trade-off between selectivity and randomness
+    //    - we don't like the mosaic looks too random
+    //      (can't see the profile shape/color before alpha blending)
+    //    - we don't like the mosaic looks too selective
+    //      (same images repeat several times in a similar or neighboring area)
+    //return std::max_element(weights.begin(), weights.end()) - weights.begin();
+
     double currSum = 0;
     for (unsigned int i=0; i<weights.size(); i++)
     {
@@ -378,8 +391,8 @@ IplImage* MontageImage::loadSubImage(SUB_IMG_ARRANGE_ORDER order)
 		GCM_subImgInfo curGCM_ofProfImg;
 		extract_GCM_subImgInfo(GCM_profImg_segment, &curGCM_ofProfImg);
 
-		double minDist = GCM_HIST_BIN_NUM*4; // a value which is impossible to reach
-		double curDist;
+		//double minDist = GCM_HIST_BIN_NUM*4; // a value which is impossible to reach
+		//double curDist;
 		int best_subImg_idx = MAX_DATABASE_NUM+1; // a index which is impossible to reach
 
 		#ifdef PRINT_DEBUG_MSG
@@ -403,7 +416,7 @@ IplImage* MontageImage::loadSubImage(SUB_IMG_ARRANGE_ORDER order)
 			}
 #endif
             double dist = compare_GCM_subImgInfo(&curGCM_ofProfImg, imgDatabase[i]);
-            dist /= (4); // normalized by some proper number by tuning
+            dist *= (30); // normalized/scaled by some proper number by tuning
             auto weight = exp(-dist);
             //printOut << "i=" << i << ", weight=" << weight << "\n";
             weights[i] = weight;
@@ -426,11 +439,16 @@ double MontageImage::compare_GCM_subImgInfo(GCM_subImgInfo* gcm_info1, GCM_subIm
 	double dist;
 	for (int i=0; i<4; i++)
 	{
+#if 0
 		dist = gcm_info1->hueValues[i] - gcm_info2->hueValues[i];
 		dist = (dist>=0) ? dist : -dist;
 		distSum += ((dist>GCM_HIST_BIN_NUM/2) ? GCM_HIST_BIN_NUM - dist : dist);
-	}
-	return distSum;
+#endif
+        // dist in range [0, 1]
+        dist = cvCompareHist(gcm_info1->hists[i], gcm_info2->hists[i], CV_COMP_BHATTACHARYYA);
+        distSum += dist;
+    }
+	return distSum/4;  // average dist in range [0, 1]
 }
 
 void MontageImage::init_geoColorMatch(void)
@@ -488,48 +506,79 @@ void MontageImage::extract_GCM_subImgInfo(IplImage* inImg, GCM_subImgInfo* gcm_i
 	static IplImage* hsv = cvCreateImage(mSubImgSize,8,3);
 	static IplImage* rszSubImg = cvCreateImage(mSubImgSize,8,3);
 
-	int hdims = GCM_HIST_BIN_NUM;
-	float hranges_arr[] = {0,180};
-	float* hranges = hranges_arr;
-	static CvHistogram *hist = cvCreateHist( 1, &hdims, CV_HIST_ARRAY, &hranges, 1 );
+	int hdims[] = {GCM_HIST_H_BIN_NUM, GCM_HIST_S_BIN_NUM};
+	float hranges_arr[] = {0, 180};
+    float sranges_arr[] = {0, 256};
+	float* ranges[] = {hranges_arr, sranges_arr};
+	static CvHistogram *hist = cvCreateHist(2, hdims, CV_HIST_ARRAY, ranges, 1 );
 	int max_idx = -1;
 	float max_val = 0;
 
 	cvResize(inImg, rszSubImg);
 
-	cvCvtColor( rszSubImg, hsv, CV_BGR2HSV );
+	cvCvtColor(rszSubImg, hsv, CV_BGR2HSV );
 	cvSplit(hsv, hue, sat, val, 0);
+    IplImage* hs_plane[] = {hue, sat};
 
 	// 1st quarter (hueValues[0])
 	cvZero(mask);
-	cvRectangle(mask, cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1), cvPoint(mSubImgSize.width/2*2, mSubImgSize.height/2*0), cvScalar(255), -1); 
-	cvCalcHist( &hue, hist, 0, mask );
-	cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
+	cvRectangle(mask,
+                cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1),
+                cvPoint(mSubImgSize.width/2*2, mSubImgSize.height/2*0),
+                cvScalar(255),
+                -1); 
+	cvCalcHist(hs_plane, hist, 0, mask);
+    cvNormalizeHist(hist, 1.0);
+	//cvGetMinMaxHistValue(hist, 0, &max_val, 0, &max_idx );
 	//cvConvertScale( hist->bins, hist->bins, max_val ? 255. / max_val : 0., 0 );
-	gcm_info->hueValues[0] = max_idx;
+	//gcm_info->hueValues[0] = max_idx;
+    gcm_info->hists[0] = NULL;
+    cvCopyHist(hist, &(gcm_info->hists[0]));
 
 	// 2st quarter (hueValues[1])
 	cvZero(mask);
-	cvRectangle(mask, cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1), cvPoint(mSubImgSize.width/2*0, mSubImgSize.height/2*0), cvScalar(255), -1); 
-	cvCalcHist( &hue, hist, 0, mask );
-	cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
+	cvRectangle(mask,
+                cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1),
+                cvPoint(mSubImgSize.width/2*0, mSubImgSize.height/2*0),
+                cvScalar(255),
+                -1); 
+	cvCalcHist(hs_plane, hist, 0, mask);
+    cvNormalizeHist(hist, 1.0);
+	//cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
 	//cvConvertScale( hist->bins, hist->bins, max_val ? 255. / max_val : 0., 0 );
-	gcm_info->hueValues[1] = max_idx;
+	//gcm_info->hueValues[1] = max_idx;
+    gcm_info->hists[1] = NULL;
+    cvCopyHist(hist, &(gcm_info->hists[1]));
+
 	// 3st quarter (hueValues[2])
 	cvZero(mask);
-	cvRectangle(mask, cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1), cvPoint(mSubImgSize.width/2*0, mSubImgSize.height/2*2), cvScalar(255), -1); 
-	cvCalcHist( &hue, hist, 0, mask );
-	cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
+	cvRectangle(mask,
+                cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1),
+                cvPoint(mSubImgSize.width/2*0, mSubImgSize.height/2*2),
+                cvScalar(255),
+                -1); 
+	cvCalcHist(hs_plane, hist, 0, mask);
+    cvNormalizeHist(hist, 1.0);
+	//cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
 	//cvConvertScale( hist->bins, hist->bins, max_val ? 255. / max_val : 0., 0 );
-	gcm_info->hueValues[2] = max_idx;
+	//gcm_info->hueValues[2] = max_idx;
+    gcm_info->hists[2] = NULL;
+    cvCopyHist(hist, &(gcm_info->hists[2]));
 
 	// 4st quarter (hueValues[3])
 	cvZero(mask);
-	cvRectangle(mask, cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1), cvPoint(mSubImgSize.width/2*2, mSubImgSize.height/2*2), cvScalar(255), -1); 
-	cvCalcHist( &hue, hist, 0, mask );
-	cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
+	cvRectangle(mask,
+                cvPoint(mSubImgSize.width/2*1, mSubImgSize.height/2*1),
+                cvPoint(mSubImgSize.width/2*2, mSubImgSize.height/2*2),
+                cvScalar(255),
+                -1); 
+	cvCalcHist(hs_plane, hist, 0, mask);
+    cvNormalizeHist(hist, 1.0);
+	//cvGetMinMaxHistValue( hist, 0, &max_val, 0, &max_idx );
 	//cvConvertScale( hist->bins, hist->bins, max_val ? 255. / max_val : 0., 0 );
-	gcm_info->hueValues[3] = max_idx;
+	//gcm_info->hueValues[3] = max_idx;
+    gcm_info->hists[3] = NULL;
+    cvCopyHist(hist, &(gcm_info->hists[3]));
 }
 
 

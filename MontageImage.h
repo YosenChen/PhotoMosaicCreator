@@ -90,7 +90,7 @@ public:
 	struct GCM_subImgInfo //only for IMG_CONF_MODE::VTL_PROF_HZL_SUB
 	{
 		std::string imgFileName; // for load access
-		double hueValues[4];
+		CvHistogram* hists[4] = {0};
 	};
 
 	bool isInit_GeoColorMatch;

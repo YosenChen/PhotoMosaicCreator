@@ -6,7 +6,8 @@
 #define OUT_MAX_HEIGHT		240*64
 
 #define MAX_DATABASE_NUM	2000
-#define GCM_HIST_BIN_NUM	16
+#define GCM_HIST_H_BIN_NUM	30
+#define GCM_HIST_S_BIN_NUM	32
 
 #define PRINT_DEBUG_MSG
 #define printOut cout
