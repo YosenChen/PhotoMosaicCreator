@@ -90,12 +90,12 @@ g++ -std=c++11 -o MontageImage MontageImage.cpp `pkg-config opencv --cflags --li
 
 finally had a version of Makefile compiling, no linking errors
 
+replaced all CFileFind mFinder with dirent APIs (ImageFileManager)
 
+see my commit history for the progress and improvement
 
-
-
-replace all CFileFind mFinder with dirent APIs
-
+Made a image split tool:
+~/GitHubWorkSpace/PhotoMosaicCreator$ ./split_image img_Text_07182018.JPG 4 4 img_Text_07182018_ ./
 
 
 

@@ -1,0 +1,53 @@
+#include <stdio.h>
+#include <string>
+
+#include <opencv/cv.h>
+#include <opencv/cxcore.h>
+#include <opencv/highgui.h>
+
+
+int main(int argc, char* argv[])
+{
+    printf("Usage: ./split_image <input_filename> <num_grid_w> <num_grid_h> <output_prefix> <output_folder>\n");
+    assert(argc == 6);
+    auto inputFile = std::string(argv[1]);
+    int numGridW = atoi(argv[2]);
+    int numGridH = atoi(argv[3]);
+    auto outPrefix = std::string(argv[4]);
+    auto outPath = std::string(argv[5]);
+    printf("input: %s, gridW: %d, gridH: %d, prefix: %s, out: %s\n",
+           inputFile.c_str(), numGridW, numGridH, outPrefix.c_str(), outPath.c_str());
+
+    IplImage *inputImage = cvLoadImage(inputFile.c_str());
+    int gridW = inputImage->width / numGridW;
+    int gridH = inputImage->height / numGridH;
+    printf("gridW:%d, gridH:%d\n", gridW, gridH);    
+
+    IplImage* subImage = cvCreateImage(cvSize(gridW, gridH), 8, 3);
+    for (int gridIdxW = 0; gridIdxW < numGridW; gridIdxW++)
+    {
+        for (int gridIdxH = 0; gridIdxH < numGridH; gridIdxH++)
+        {
+            // coordinate: top-left origin
+            cvSetImageROI(inputImage,
+                          cvRect(gridIdxW*gridW, gridIdxH*gridH, gridW, gridH));
+            cvCopy(inputImage, subImage);
+            auto outFile = outPath
+                           + outPrefix
+                           + std::to_string(gridIdxW)
+                           + std::string("x")
+                           + std::to_string(gridIdxH)
+                           + std::string(".JPG");
+            cvSaveImage(outFile.c_str(), subImage);
+
+            // we have to release ROI, why?
+            // Most OpenCV functions support the use of ROI and treat the image rectangle as a separate image.
+            // For example, all of the pixel coordinates are counted from the top-left (or bottom-left) corner of the ROI,
+            // not the original image.
+            //cvResetImageROI(inputImage);
+            printf("saved out file: %s\n", outFile.c_str());
+        }
+    }
+    printf("All done!\n");
+    return 0;
+}
